@@ -10,3 +10,14 @@ Tested and working:
 * Linux with local IPMI support (ipmitool -I open)
 
 Other models and firmware versions have not been tested.
+
+# Install and use
+
+As root
+
+```sh
+apt install ipmitool
+```
+```sh
+./fan-control
+```
