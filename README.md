@@ -16,7 +16,7 @@ Other models and firmware versions have not been tested.
 As root
 
 ```sh
-apt install ipmitool
+apt install ipmitool zsh
 ```
 ```sh
 ./fan-control
