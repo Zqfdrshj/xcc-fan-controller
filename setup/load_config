@@ -1,0 +1,24 @@
+# Load defaults followed by one optional override. Configuration variables
+# belong to run_controller's local scope (Zsh's dynamic scoping).
+emulate -L zsh
+
+local defaults="$1/config/default.conf"
+local override="$2"
+
+if [[ ! -r $defaults ]]; then
+    print -u2 -- "fan-control: cannot read defaults: $defaults"
+    return 1
+fi
+source "$defaults" || return 1
+
+if [[ -z $override && -e /etc/xcc-fan-controller.conf ]]; then
+    override=/etc/xcc-fan-controller.conf
+fi
+
+if [[ -n $override ]]; then
+    if [[ ! -f $override || ! -r $override ]]; then
+        print -u2 -- "fan-control: cannot read configuration: $override"
+        return 1
+    fi
+    source "$override" || return 1
+fi

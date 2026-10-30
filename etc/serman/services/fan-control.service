@@ -1,0 +1,7 @@
+Type=simple
+Exec=/usr/bin/fan-control
+Ready=spawn
+Restart=always
+RestartDelay=2
+RestartLimit=5
+RestartWindow=60

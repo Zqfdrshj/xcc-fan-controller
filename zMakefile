@@ -1,0 +1,81 @@
+#!/usr/bin/env zsh
+# Build and installation tasks for xcc-fan-controller.
+emulate -LR zsh
+set -e
+
+cd "${0:A:h}" || exit 1
+
+TARGET=xcc-fan-controller
+INSTALL_DIR=/usr/share/mouse-lib/$TARGET
+BIN_DIR=/usr/bin
+
+SOURCES=(
+    setup/load_config
+    setup/validate_config
+    sensors/read_sensors
+    sensors/parse_sensors
+    sensors/check_sensors
+    control/select_mode
+    control/set_mode
+    control/restore_auto
+    control/cleanup_controller
+    control/run_controller
+)
+
+case "$1" in
+    all)
+        for file in $SOURCES; do
+            zcompile "$file"
+        done
+        print -r -- 'Compiled controller functions.'
+        ;;
+
+    clean)
+        rm -f -- ${SOURCES[@]/%/.zwc}
+        print -r -- 'Removed compiled functions.'
+        ;;
+
+    install)
+        if [[ -e $INSTALL_DIR || -e $BIN_DIR/fan-control || -L $BIN_DIR/fan-control ]]; then
+            print -u2 -- 'fan-control: already installed'
+            exit 1
+        fi
+
+        install -d -m 755 "$INSTALL_DIR"
+        install -d -m 755 "$INSTALL_DIR/config"
+        install -d -m 755 "$INSTALL_DIR/setup"
+        install -d -m 755 "$INSTALL_DIR/sensors"
+        install -d -m 755 "$INSTALL_DIR/control"
+
+        install -m 755 fan-control "$INSTALL_DIR/fan-control"
+        install -m 644 autoload "$INSTALL_DIR/autoload"
+        install -m 644 config/default.conf "$INSTALL_DIR/config/default.conf"
+
+        for file in $SOURCES; do
+            install -m 644 "$file" "$INSTALL_DIR/$file"
+            if [[ -f "$file.zwc" ]]; then
+                install -m 644 "$file.zwc" "$INSTALL_DIR/$file.zwc"
+            fi
+        done
+
+        printf '#!/usr/bin/env zsh\nexec "%s/fan-control" "$@"\n' "$INSTALL_DIR" > "$BIN_DIR/fan-control"
+        chmod 755 "$BIN_DIR/fan-control"
+        if [[ -d /etc/serman/services ]]; then
+            install -m 644 etc/serman/services/fan-control.service /etc/serman/services/fan-control.service
+        fi
+        print -r -- 'Installed fan-control.'
+        ;;
+
+    uninstall)
+        rm -f -- "$BIN_DIR/fan-control"
+        rm -f -- /etc/serman/services/boot/fan-control.service
+        rm -f -- /etc/serman/services/fan-control.service
+        rm -rf -- "$INSTALL_DIR"
+        print -r -- 'Uninstalled fan-control (custom configuration preserved).'
+        ;;
+
+    *)
+        print -u2 -- 'Usage: ./zMakefile {all|clean|install|uninstall}'
+        exit 1
+        ;;
+esac

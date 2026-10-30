@@ -1,0 +1,13 @@
+# Restore automatic XClarity cooling at most once per shutdown.
+# cleanup_done lives in run_controller's local scope.
+emulate -L zsh
+
+(( cleanup_done )) && return 0
+cleanup_done=1
+
+if restore_auto; then
+    return 0
+fi
+
+print -u2 -- 'fan-control: CRITICAL: automatic cooling restore failed'
+return 1

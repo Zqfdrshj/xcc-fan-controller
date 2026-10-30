@@ -1,0 +1,95 @@
+# Own the lifecycle and its state. Helpers access these *local* variables
+# through Zsh dynamic scoping; nothing is exported to the parent shell.
+emulate -L zsh
+
+local script_dir="$1"
+shift
+
+local -A cfg temps
+local -a ipmi_command low_command medium_command auto_command
+local -a sensor_names sensor_states sensor_values
+local REPLY='' mode=unknown cooldown=0 last_problem='' problem='' target=''
+local custom_config='' check_only=0
+local cleanup_done=0
+
+while (( $# > 0 )); do
+    case $1 in
+        --config|-c)
+            shift
+            if (( $# == 0 )) || [[ -z $1 ]]; then
+                print -u2 -- 'fan-control: --config requires a path'
+                return 1
+            fi
+            custom_config="$1"
+            ;;
+        --check-config) check_only=1 ;;
+        --help|-h)
+            print -r -- 'Usage: fan-control [--config FILE] [--check-config]'
+            return 0
+            ;;
+        *)
+            print -u2 -- "fan-control: unknown option: $1"
+            return 1
+            ;;
+    esac
+    shift
+done
+
+load_config "$script_dir" "$custom_config" || return 1
+validate_config || return 1
+
+if (( check_only )); then
+    print -r -- 'fan-control: configuration valid'
+    return 0
+fi
+if (( EUID != 0 )); then
+    print -u2 -- 'fan-control: root required'
+    return 1
+fi
+
+# In Zsh, an EXIT trap defined inside a function runs when that function
+# returns, not reliably when a signal handler exits the entire shell.
+# Handle signals directly; cleanup_controller prevents duplicate recovery.
+trap 'cleanup_controller' EXIT
+trap 'cleanup_controller; exit 130' INT
+trap 'cleanup_controller; exit 143' TERM
+trap 'cleanup_controller; exit 129' HUP
+
+while true; do
+    problem=''
+    if read_sensors; then
+        parse_sensors "$REPLY"
+        check_sensors || :
+    else
+        problem='cannot read BMC sensors'
+    fi
+
+    select_mode
+
+    if [[ -n $problem && $problem != $last_problem ]]; then
+        print -u2 -- "fan-control: $problem; returning control to XClarity"
+    fi
+    last_problem="$problem"
+
+    if [[ $target != $mode ]]; then
+        if set_mode "$target"; then
+            mode="$target"
+            if [[ -z $problem ]]; then
+                print -r -- "fan-control: $mode (CPU1=${temps[cpu1]} C CPU2=${temps[cpu2]} C)"
+            else
+                print -u2 -- 'fan-control: XClarity automatic cooling requested'
+            fi
+        else
+            print -u2 -- "fan-control: WARNING: failed to set $target; attempting automatic cooling"
+            mode=unknown
+            if restore_auto; then
+                mode=auto
+                cooldown=1
+            else
+                print -u2 -- 'fan-control: CRITICAL: cannot restore automatic cooling; retrying'
+            fi
+        fi
+    fi
+
+    sleep "${cfg[poll_interval]}"
+done

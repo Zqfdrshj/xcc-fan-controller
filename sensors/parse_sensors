@@ -1,0 +1,25 @@
+# Convert an SDR snapshot to parallel arrays; no thermal decisions here.
+emulate -L zsh
+
+local line name state value
+local -a fields
+sensor_names=()
+sensor_states=()
+sensor_values=()
+
+for line in "${(f)1}"; do
+    IFS='|' read -rA fields <<< "$line"
+    (( ${#fields} == 5 )) || continue
+
+    name=${fields[1]//[[:space:]]/}
+    state=${fields[3]//[[:space:]]/}
+    value=${fields[5]//[[:space:]]/}
+
+    case $name in
+        CPU1Temp|CPU2Temp|DIMM*Temp|PCHTemp|AmbientTemp|ExhaustTemp|*OverTemp)
+            sensor_names+=("$name")
+            sensor_states+=("$state")
+            sensor_values+=("$value")
+            ;;
+    esac
+done

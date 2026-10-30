@@ -1,0 +1,22 @@
+_xcc_autoload_dir=${${(%):-%N}:A:h}
+
+fpath=(
+    $_xcc_autoload_dir/setup
+    $_xcc_autoload_dir/sensors
+    $_xcc_autoload_dir/control
+    $fpath
+)
+
+unset _xcc_autoload_dir
+
+autoload -Uz \
+    load_config \
+    validate_config \
+    read_sensors \
+    parse_sensors \
+    check_sensors \
+    select_mode \
+    set_mode \
+    restore_auto \
+    cleanup_controller \
+    run_controller

@@ -1,0 +1,37 @@
+# Pure thermal policy: choose low/medium/auto, without issuing commands.
+emulate -L zsh
+
+local cpu_max
+target=''
+
+if [[ -n $problem ]]; then
+    cooldown=1
+    target=auto
+    return 0
+fi
+
+cpu_max=$(( temps[cpu1] > temps[cpu2] ? temps[cpu1] : temps[cpu2] ))
+
+# Keep automatic regulation until *every* monitored component has
+# recovered by the configured safety hysteresis.
+if (( cooldown && (
+      cpu_max > cfg[cpu_limit] - cfg[safety_hysteresis] ||
+      temps[dimm_max] > cfg[dimm_limit] - cfg[safety_hysteresis] ||
+      temps[pch] > cfg[pch_limit] - cfg[safety_hysteresis] ||
+      temps[ambient] > cfg[ambient_limit] - cfg[safety_hysteresis] ||
+      temps[exhaust] > cfg[exhaust_limit] - cfg[safety_hysteresis]
+   ) )); then
+    target=auto
+    return 0
+fi
+
+cooldown=0
+if (( cpu_max < cfg[cpu_low_below] )); then
+    if [[ $mode == medium ]] && (( cpu_max > cfg[cpu_low_return] )); then
+        target=medium
+    else
+        target=low
+    fi
+else
+    target=medium
+fi
