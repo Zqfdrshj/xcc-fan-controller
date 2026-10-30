@@ -10,6 +10,7 @@ local -a ipmi_command low_command medium_command auto_command
 local -a sensor_names sensor_states sensor_values
 local REPLY='' mode=unknown cooldown=0 last_problem='' problem='' target=''
 local custom_config='' check_only=0
+local cleanup_done=0
 
 while (( $# > 0 )); do
     case $1 in
@@ -46,10 +47,13 @@ if (( EUID != 0 )); then
     return 1
 fi
 
-# The EXIT trap is installed only for live control, never config checks.
-# Restore XClarity on normal exit, SIGINT, SIGTERM or SIGHUP.
-trap 'restore_auto || print -u2 -- "fan-control: CRITICAL: automatic cooling restore failed"' EXIT
-trap 'exit 0' INT TERM HUP
+# In Zsh, an EXIT trap defined inside a function runs when that function
+# returns, not reliably when a signal handler exits the entire shell.
+# Handle signals directly; cleanup_controller prevents duplicate recovery.
+trap 'cleanup_controller' EXIT
+trap 'cleanup_controller; exit 130' INT
+trap 'cleanup_controller; exit 143' TERM
+trap 'cleanup_controller; exit 129' HUP
 
 while true; do
     problem=''

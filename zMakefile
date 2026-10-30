@@ -18,6 +18,7 @@ SOURCES=(
     control/select_mode
     control/set_mode
     control/restore_auto
+    control/cleanup_controller
     control/run_controller
 )
 

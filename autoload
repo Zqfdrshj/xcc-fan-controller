@@ -18,4 +18,5 @@ autoload -Uz \
     select_mode \
     set_mode \
     restore_auto \
+    cleanup_controller \
     run_controller

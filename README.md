@@ -86,4 +86,4 @@ Validate settings without root access or hardware commands:
 
 The maximum CPU temperature selects LOW (< 30 °C) or MEDIUM (30–59 °C) by default. A missing/invalid required sensor, triggered overtemperature alarm or exceeded safety threshold makes the controller request XClarity AUTO. A hysteresis margin delays resumption of manual fan commands.
 
-The controller attempts to restore XClarity AUTO when a fan command fails, on normal exit and on handled signals. This is best effort; software cannot guarantee recovery from SIGKILL, power loss, kernel crashes or BMC failure. Do not use unverified raw commands on other servers.
+The controller explicitly restores XClarity AUTO when interrupted by Ctrl+C (SIGINT), SIGTERM or SIGHUP, and attempts recovery on a normal function return. Cleanup is guarded against duplicate calls. This is best effort; software cannot guarantee recovery from SIGKILL, power loss, kernel crashes or BMC failure. Do not use unverified raw commands on other servers.
