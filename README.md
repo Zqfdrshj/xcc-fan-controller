@@ -6,7 +6,7 @@ Lightweight Zsh fan controller for Lenovo XClarity Controller (XCC), using local
 
 ## Architecture
 
-The project follows the same layout as zpack: a central `autoload`, one function per file, folders by responsibility, and a `zMakefile` to compile, install and uninstall it.
+The project uses a central `autoload`, one function per file, folders by responsibility, and a `zMakefile` to compile, install and uninstall it.
 
 ```text
 fan-control             Entry point
@@ -34,6 +34,18 @@ sudo ./zMakefile install
 ```
 
 The installed program is `/usr/bin/fan-control`, with its sources and compiled function files (if built) in `/usr/share/mouse-lib/xcc-fan-controller`. `./zMakefile clean` removes local `.zwc` artifacts and `sudo ./zMakefile uninstall` removes the installation without deleting your personal configuration.
+
+## Zsh environment setup
+
+Zsh does not automatically load files from `/etc/zsh/zshenv.d/`. Add the following to `/etc/zsh/zshenv` to source the configuration snippets at shell startup:
+
+```zsh
+for file in /etc/zsh/zshenv.d/*.sh(N); do
+    source "$file"
+done
+```
+
+This only needs to be configured once. Ensure files in this directory are trusted, since `zshenv` runs for every Zsh invocation.
 
 ## Serman service
 
