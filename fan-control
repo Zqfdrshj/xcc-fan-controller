@@ -1,10 +1,7 @@
 #!/usr/bin/env zsh
 # MIT License - Copyright (c) 2026 Zqfdrshj
-# XClarity fan controller. The entry point only loads its functions.
+# XClarity fan controller; only orchestration lives in the entry point.
 emulate -LR zsh
 
-fpath=("${0:A:h}/functions" $fpath)
-autoload -Uz run_controller load_config validate_config read_sensors \
-    parse_sensors check_sensors select_mode set_mode restore_auto
-
+source "${0:A:h}/autoload" || exit 1
 run_controller "${0:A:h}" "$@"

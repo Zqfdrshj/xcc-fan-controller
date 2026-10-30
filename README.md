@@ -1,30 +1,43 @@
 # xcc-fan-controller
 
-Lightweight Zsh fan controller for Lenovo XClarity Controller (XCC) using local IPMI.
+Lightweight Zsh fan controller for Lenovo XClarity Controller (XCC), using local IPMI.
 
-**Tested and working on:**
-- Lenovo ThinkSystem SR650 V1 (7X06)
-- Lenovo XClarity Controller (XCC) 9.95
-- UEFI 4.13
-- Linux with local IPMI support (`ipmitool -I open`)
+**Tested on:** Lenovo ThinkSystem SR650 V1 (7X06), XCC 9.95, UEFI 4.13 and Linux with local IPMI (`ipmitool -I open`). Other models and firmware have not been tested. Lenovo raw commands are undocumented.
 
-Other models, firmware versions and raw fan commands have **not** been tested.
+## Architecture
 
-## Run
+The project follows the same layout as zpack: a central `autoload`, one function per file, folders by responsibility, and a `zMakefile` to compile, install and uninstall it.
 
-Requires Zsh, ipmitool, GNU coreutils (`timeout`) and root access for hardware control.
+```text
+fan-control             Entry point
+autoload                Zsh fpath and function registrations
+zMakefile               all / clean / install / uninstall
+config/default.conf     Default settings and fan commands
+setup/                  Configuration loading and validation
+sensors/                Sensor reading, parsing and safety checks
+control/                Mode selection, IPMI commands and controller lifecycle
+```
+
+## Build and install
+
+Requires `zsh`, `ipmitool`, GNU `timeout` and appropriate local IPMI support. To run from the checkout as root:
 
 ```sh
 sudo ./fan-control
 ```
 
-The script selects **low** for CPU temperatures below 30 °C, **medium** at 30–59 °C, and hands control back to **XClarity AUTO** when a safety limit is reached or a required sensor cannot be validated. Hysteresis prevents repeated switching around thresholds.
+To compile the autoloaded functions and install in the Mouse userspace:
+
+```sh
+./zMakefile all
+sudo ./zMakefile install
+```
+
+The installed program is `/usr/bin/fan-control`, with its sources and compiled function files (if built) in `/usr/share/mouse-lib/xcc-fan-controller`. `./zMakefile clean` removes local `.zwc` artifacts and `sudo ./zMakefile uninstall` removes the installation without deleting your personal configuration.
 
 ## Configuration
 
-Defaults: [config/default.conf](config/default.conf). To override just the desired settings, place a trusted Zsh file at `/etc/xcc-fan-controller.conf`, or supply `--config /path/to/file`. An explicit path replaces the optional system override; it does not replace the defaults.
-
-Example custom configuration:
+Defaults live in `config/default.conf`. A trusted administrator can override individual settings in `/etc/xcc-fan-controller.conf`, or pass `--config /path/to/override.conf`. Explicit `--config` replaces the optional system override, not the defaults.
 
 ```zsh
 cfg[cpu_low_below]=32
@@ -37,23 +50,19 @@ medium_command=(raw 0x3a 0x07 0xff 0x8a 0x01)
 auto_command=(raw 0x3a 0x07 0xff 0xff 0x00)
 ```
 
-`ipmi_command=(ipmitool -I open)` is also configurable. The `*_command` arrays contain arguments appended to `ipmi_command`; they are never passed through `eval`. Safety limits and expected sensor counts (CPU1, CPU2, DIMM, PCH, ambient, exhaust and overtemperature alarms) can all be adjusted through `cfg`. See `config/default.conf` for all supported keys.
+`ipmi_command=(ipmitool -I open)` configures the shared IPMI prefix. All command values are Zsh arrays; they are executed directly without `eval`. Sensor limits, expected sensor counts, sample period, timeouts and hysteresis settings are configurable. Consult `config/default.conf` for available settings.
 
-Configuration files are **executable Zsh code**: keep them root-owned and writable only by trusted administrators. Different XClarity models may require different raw commands; do not copy unverified fan commands to other hardware.
+Configuration files are executable **Zsh code** and must be writable only by trusted administrators.
 
-To validate configuration without running IPMI or requiring root:
+Validate settings without root access or hardware commands:
 
 ```sh
 ./fan-control --check-config
-./fan-control --config ./my-fans.conf --check-config
+./fan-control --config ./custom.conf --check-config
 ```
 
 ## Safety
 
-The highest CPU temperature sets the normal fan curve. All monitored components have independent temperature limits. Any invalid/missing required sensor, overtemperature alarm, or sensor read failure causes a request to return to XClarity's automatic control.
+The maximum CPU temperature selects LOW (< 30 °C) or MEDIUM (30–59 °C) by default. A missing/invalid required sensor, triggered overtemperature alarm or exceeded safety threshold makes the controller request XClarity AUTO. A hysteresis margin delays resumption of manual fan commands.
 
-The program also attempts to restore AUTO after a failed fan command and on normal exit or handled termination signals. This is **best effort**, not a guarantee after SIGKILL, power loss, kernel failure or BMC failure. Never depend on software alone to guarantee cooling.
-
-## Development
-
-The entry point is `fan-control`; each function is a separate autoloaded file in `functions/`. The controller owns state, the sensor functions read and validate values, `select_mode` decides the fan mode and `set_mode` sends its configured IPMI command.
+The controller attempts to restore XClarity AUTO when a fan command fails, on normal exit and on handled signals. This is best effort; software cannot guarantee recovery from SIGKILL, power loss, kernel crashes or BMC failure. Do not use unverified raw commands on other servers.
