@@ -1,0 +1,13 @@
+# Execute exactly the configured command for a requested mode.
+emulate -L zsh
+
+local requested="$1"
+local -a fan_command
+case $requested in
+    low)    fan_command=("${low_command[@]}") ;;
+    medium) fan_command=("${medium_command[@]}") ;;
+    auto)   fan_command=("${auto_command[@]}") ;;
+    *)      return 1 ;;
+esac
+
+timeout "${cfg[ipmi_timeout]}" "${ipmi_command[@]}" "${fan_command[@]}" >/dev/null 2>&1

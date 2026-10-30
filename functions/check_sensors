@@ -1,0 +1,69 @@
+# Check presence, states, alarms and limits. Populate temps only for
+# validated readings; any problem forces XClarity AUTO in select_mode.
+emulate -L zsh
+
+local idx name state value key limit temperature
+local -A counts=(
+    cpu1 0 cpu2 0 dimm 0 pch 0 ambient 0 exhaust 0 overtemp 0
+)
+temps=(cpu1 -1 cpu2 -1 dimm_max -1 pch -1 ambient -1 exhaust -1)
+
+for (( idx = 1; idx <= ${#sensor_names}; idx++ )); do
+    name=${sensor_names[idx]}
+    state=${sensor_states[idx]}
+    value=${sensor_values[idx]}
+
+    if [[ $name == *OverTemp ]]; then
+        (( counts[overtemp]++ ))
+        if [[ $state != ok || $value != TransitiontoOK ]]; then
+            problem="hardware overtemperature alert: $name ($value)"
+            return 1
+        fi
+        continue
+    fi
+
+    case $name in
+        CPU1Temp)      key=cpu1; limit=${cfg[cpu_limit]} ;;
+        CPU2Temp)      key=cpu2; limit=${cfg[cpu_limit]} ;;
+        DIMM*Temp)
+            [[ $value == NoReading ]] && continue
+            key=dimm
+            limit=${cfg[dimm_limit]}
+            ;;
+        PCHTemp)       key=pch; limit=${cfg[pch_limit]} ;;
+        AmbientTemp)   key=ambient; limit=${cfg[ambient_limit]} ;;
+        ExhaustTemp)   key=exhaust; limit=${cfg[exhaust_limit]} ;;
+        *) continue ;;
+    esac
+
+    (( counts[$key]++ ))
+    if [[ $state != ok || $value != <->degreesC ]]; then
+        problem="invalid sensor: $name ($value, $state)"
+        return 1
+    fi
+
+    temperature=${value%degreesC}
+    if (( temperature >= limit )); then
+        problem="$name = ${temperature} C (safety limit ${limit} C)"
+        return 1
+    fi
+
+    if [[ $key == dimm ]]; then
+        (( temperature > temps[dimm_max] )) && temps[dimm_max]=$temperature
+    else
+        temps[$key]=$temperature
+    fi
+done
+
+if (( counts[cpu1] != cfg[cpu1_count] ||
+      counts[cpu2] != cfg[cpu2_count] ||
+      counts[dimm] != cfg[dimm_count] ||
+      counts[pch] != cfg[pch_count] ||
+      counts[ambient] != cfg[ambient_count] ||
+      counts[exhaust] != cfg[exhaust_count] ||
+      counts[overtemp] != cfg[overtemp_count] )); then
+    problem="missing sensors (CPU=${counts[cpu1]}/${counts[cpu2]} DIMM=${counts[dimm]} PCH=${counts[pch]} ambient=${counts[ambient]} exhaust=${counts[exhaust]} alarms=${counts[overtemp]})"
+    return 1
+fi
+
+return 0

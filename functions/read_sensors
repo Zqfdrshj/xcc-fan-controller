@@ -1,0 +1,5 @@
+# Fetch one complete snapshot. REPLY is local to the calling controller.
+emulate -L zsh
+
+REPLY=$(timeout "${cfg[ipmi_timeout]}" "${ipmi_command[@]}" sdr type Temperature 2>/dev/null) || return 1
+[[ -n $REPLY ]]

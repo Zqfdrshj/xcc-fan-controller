@@ -1,0 +1,41 @@
+# Validate all settings before allowing manual cooling.
+emulate -L zsh
+
+local key
+local -a numeric_keys=(
+    poll_interval ipmi_timeout cpu_low_below cpu_low_return
+    cpu_limit dimm_limit pch_limit ambient_limit exhaust_limit
+    safety_hysteresis cpu1_count cpu2_count dimm_count
+    pch_count ambient_count exhaust_count overtemp_count
+)
+
+for key in "${numeric_keys[@]}"; do
+    if [[ ${cfg[$key]-} != <-> ]]; then
+        print -u2 -- "fan-control: invalid integer setting: $key"
+        return 1
+    fi
+done
+
+if (( cfg[poll_interval] < 1 || cfg[ipmi_timeout] < 1 ||
+      cfg[safety_hysteresis] < 1 ||
+      cfg[cpu_low_return] >= cfg[cpu_low_below] ||
+      cfg[cpu_low_below] >= cfg[cpu_limit] ||
+      cfg[cpu1_count] + cfg[cpu2_count] < 1 )); then
+    print -u2 -- 'fan-control: invalid sampling, CPU curve or safety hysteresis'
+    return 1
+fi
+
+for key in cpu_limit dimm_limit pch_limit ambient_limit exhaust_limit; do
+    if (( cfg[$key] <= cfg[safety_hysteresis] )); then
+        print -u2 -- "fan-control: $key must exceed safety_hysteresis"
+        return 1
+    fi
+done
+
+if (( ${#ipmi_command} == 0 || ${#low_command} == 0 ||
+      ${#medium_command} == 0 || ${#auto_command} == 0 )); then
+    print -u2 -- 'fan-control: IPMI and fan commands must not be empty'
+    return 1
+fi
+
+return 0

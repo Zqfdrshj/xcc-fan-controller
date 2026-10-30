@@ -1,0 +1,14 @@
+# Best-effort recovery on shutdown or after a failed manual command.
+emulate -L zsh
+
+local attempt
+for attempt in 1 2 3; do
+    if set_mode auto; then
+        print -r -- 'fan-control: XClarity automatic cooling restored'
+        return 0
+    fi
+    print -u2 -- "fan-control: WARNING: automatic cooling restore failed (attempt $attempt)"
+    sleep 1
+done
+
+return 1
