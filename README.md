@@ -16,6 +16,8 @@ config/default.conf     Default settings and fan commands
 setup/                  Configuration loading and validation
 sensors/                Sensor reading, parsing and safety checks
 control/                Mode selection, IPMI commands and controller lifecycle
+etc/serman/services/    Optional Serman service unit
+etc/systemd/system/     Optional systemd service unit
 ```
 
 ## Build and install
@@ -34,6 +36,8 @@ sudo ./zMakefile install
 ```
 
 The installed program is `/usr/bin/fan-control`, with its sources and compiled function files (if built) in `/usr/share/mouse-lib/xcc-fan-controller`. `./zMakefile clean` removes local `.zwc` artifacts and `sudo ./zMakefile uninstall` removes the installation without deleting your personal configuration.
+
+The installer also installs the corresponding service definition if `/etc/serman/services/` or `/etc/systemd/system/` exists. Neither service is automatically enabled or started. Stop and disable the active service before uninstalling; after removing a systemd unit, run `sudo systemctl daemon-reload`.
 
 ## Zsh environment setup
 
@@ -67,6 +71,34 @@ To stop it: `sermanctl fan-control stop`. Serman writes controller output to
 `/var/log/serman/fan-control.log`. The unit uses `Ready=spawn` because the
 controller has no explicit readiness notification; this only confirms launch,
 not sensor validation or successful manual fan control.
+
+## systemd service
+
+The included `etc/systemd/system/fan-control.service` runs `fan-control` as a root-owned foreground service. It restarts the controller after unexpected exits and limits repeated restarts. `./zMakefile install` installs the unit to `/etc/systemd/system/fan-control.service` on systems where that directory exists, but does not enable or start it.
+
+If `fan-control` is already installed, install just the unit from the repository:
+
+```sh
+sudo install -m 644 etc/systemd/system/fan-control.service /etc/systemd/system/fan-control.service
+```
+
+After installing the unit (including via `zMakefile`), reload systemd and enable and start the controller:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now fan-control.service
+sudo systemctl status fan-control.service
+```
+
+View output with `journalctl -u fan-control.service -f`. To stop and disable it:
+
+```sh
+sudo systemctl disable --now fan-control.service
+```
+
+On stop, systemd sends `SIGTERM` to the controller and allows up to 45 seconds for its XClarity AUTO restoration attempts. `KillMode=mixed` avoids immediately signaling the IPMI subprocesses during this cleanup. Increase `TimeoutStopSec` if your custom `ipmi_timeout` requires longer. Restoring XClarity is best effort, not guaranteed if systemd has to forcefully terminate the service.
+
+**Use only one service manager to run this controller at a time.** Do not enable both the Serman and systemd units, or manually launch another copy of `fan-control` while one is running.
 
 ## Configuration
 

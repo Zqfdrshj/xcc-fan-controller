@@ -1,0 +1,16 @@
+[Unit]
+Description=Lenovo XClarity IPMI fan controller
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/fan-control
+Restart=always
+RestartSec=2s
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=45s
+
+[Install]
+WantedBy=multi-user.target
