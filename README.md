@@ -35,6 +35,27 @@ sudo ./zMakefile install
 
 The installed program is `/usr/bin/fan-control`, with its sources and compiled function files (if built) in `/usr/share/mouse-lib/xcc-fan-controller`. `./zMakefile clean` removes local `.zwc` artifacts and `sudo ./zMakefile uninstall` removes the installation without deleting your personal configuration.
 
+## Serman service
+
+The included `etc/serman/services/fan-control.service` unit runs the controller as a
+foreground service and restarts it if it exits unexpectedly. On systems with
+`/etc/serman/services`, `./zMakefile install` also installs this unit, but does
+not enable it or start the controller automatically.
+
+For an already installed controller, install the unit directly:
+
+```sh
+sudo install -m 644 etc/serman/services/fan-control.service /etc/serman/services/fan-control.service
+sermanctl reload
+sermanctl fan-control enable
+sermanctl fan-control start
+```
+
+To stop it: `sermanctl fan-control stop`. Serman writes controller output to
+`/var/log/serman/fan-control.log`. The unit uses `Ready=spawn` because the
+controller has no explicit readiness notification; this only confirms launch,
+not sensor validation or successful manual fan control.
+
 ## Configuration
 
 Defaults live in `config/default.conf`. A trusted administrator can override individual settings in `/etc/xcc-fan-controller.conf`, or pass `--config /path/to/override.conf`. Explicit `--config` replaces the optional system override, not the defaults.

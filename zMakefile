@@ -59,11 +59,16 @@ case "$1" in
 
         printf '#!/usr/bin/env zsh\nexec "%s/fan-control" "$@"\n' "$INSTALL_DIR" > "$BIN_DIR/fan-control"
         chmod 755 "$BIN_DIR/fan-control"
+        if [[ -d /etc/serman/services ]]; then
+            install -m 644 etc/serman/services/fan-control.service /etc/serman/services/fan-control.service
+        fi
         print -r -- 'Installed fan-control.'
         ;;
 
     uninstall)
         rm -f -- "$BIN_DIR/fan-control"
+        rm -f -- /etc/serman/services/boot/fan-control.service
+        rm -f -- /etc/serman/services/fan-control.service
         rm -rf -- "$INSTALL_DIR"
         print -r -- 'Uninstalled fan-control (custom configuration preserved).'
         ;;
